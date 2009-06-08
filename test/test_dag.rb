@@ -67,7 +67,7 @@ end
 
 
 #Unit Tests for the DAG plugin
-class DagTest < Test::Unit::TestCase
+class TestDag < Test::Unit::TestCase
   
   #Setups up database in memory
   def setup
