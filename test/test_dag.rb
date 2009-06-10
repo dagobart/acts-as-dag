@@ -538,6 +538,38 @@ class TestDag < Test::Unit::TestCase
     assert_equal a, indirect.ancestor
     assert_equal c, indirect.descendant 
   end
+
+  # Test duplicate?
+  def test_duplicate?
+    a = Node.create!
+    b = Node.create!
+
+    Default.create_edge(a, b)
+    assert Default.build_edge(a, b).duplicate?
+  end
+
+  # Test not duplicate?
+  def test_not_duplicate?
+    a = Node.create!
+    b = Node.create!
+
+    Default.create_edge(a, b)
+
+    link = Default.find_link(a, b)
+    assert !link.duplicate?
+  end
+
+  def test_inverse_links_are_not_duplicates
+    a = Node.create!
+    b = Node.create!
+
+    Default.create_edge(a, b)
+
+    assert Default.find_link(a, b)
+
+    # Test that the opposite link b -> a is not a duplicate
+    assert !Default.build_edge(b, a).duplicate?
+  end
   
   ##########################
   #TESTS FOR has_dag_links #
@@ -816,4 +848,74 @@ class TestDag < Test::Unit::TestCase
     b.reload
     assert !b.root_for_beta_nodes?
   end
+
+  # Test to ensure uniquness of ancestor_id is properly scoped
+  def test_for_too_general_ancestor_id_scope_for_non_polymorphic
+    one   = Node.create!
+    two   = Node.create!
+    three = Node.create!
+    four  = Node.create!
+
+    one.children << three
+
+    three.children << four
+    three.children << two
+
+    four.children << two
+  end
+
+  # Used in test_to_prevent_duplicate_links and
+  # test_to_prevent_duplicate_links_via_unnecessary_link
+  def link_graph_nodes(one, two, three, four)
+    one.children   << two
+    one.children   << three
+    three.children << four
+    two.children   << four
+  end
+
+  def test_to_prevent_duplicate_links
+    one   = Node.create!
+    two   = Node.create!
+    three = Node.create!
+    four  = Node.create!
+
+    link_graph_nodes(one, two, three, four)
+
+    assert !Default.connected?(two, three)
+    assert_nil Default.find_link(two, three)
+
+    # Add two as a child of three
+    three.children << two
+
+    assert Default.connected?(three, two)
+    assert_not_nil Default.find_link(three, two)
+  end
+
+  # Same test as test_to_prevent_duplicate_links, but creates link
+  # one -> four which then allows three -> two to be created.
+  def test_to_prevent_duplicate_links_via_unnecessary_link
+    one   = Node.create!
+    two   = Node.create!
+    three = Node.create!
+    four  = Node.create!
+
+    link_graph_nodes(one, two, three, four)
+
+    assert !Default.connected?(three, two)
+    assert_nil Default.find_link(three, two)
+
+    # add one -> four, before three -> two
+    one.children << four
+
+    # Set three -> two
+    three.children << two
+
+    # Remove one -> four link
+    one.children.delete four
+
+    assert Default.connected?(three, two)
+    assert_not_nil Default.find_link(three, two)
+  end
+
+
 end

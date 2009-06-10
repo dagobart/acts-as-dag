@@ -86,7 +86,7 @@ module ActiveRecord
 						belongs_to :ancestor, :foreign_key => ancestor_id_column_name, :class_name => acts_as_dag_options[:node_class_name]
 						belongs_to :descendant, :foreign_key => descendant_id_column_name, :class_name => acts_as_dag_options[:node_class_name]
 						
-						validates_uniqueness_of ancestor_id_column_name, :scope => [descendant_id_column_name]
+						validates_uniqueness_of ancestor_id_column_name, :scope => [descendant_id_column_name,direct_column_name]
 						
 						named_scope :with_ancestor, lambda {|ancestor| {:conditions => {ancestor_id_column_name => ancestor.id}}}
 						named_scope :with_descendant, lambda {|descendant| {:conditions => {descendant_id_column_name => descendant.id}}}
@@ -712,9 +712,28 @@ module ActiveRecord
 				def links_from_sink
 					self.class.with_ancestor_point(self.sink)
 				end
-				
+
+				# Check for any duplicate links:  links with identical ancestor_id, descendant_id, and direct attributes
+				def duplicate?
+					link = self.class.find(:first, :conditions => self.class.conditions_for(source, sink).merge({ :direct => direct }))
+
+					if link.nil? || link == self
+						false
+					else
+						true
+					end
+				end
+
 				protected
-				
+
+				def above_sources
+					links_to_source.collect { |edge| edge.source }
+				end
+
+				def below_sinks
+					links_from_sink.collect { |edge| edge.sink }
+				end
+
 				#Changes on a wire based on the count (destroy! or save!) (should not be called outside this plugin)        
 				def push_associated_modification!(edge)
 					raise ActiveRecord::ActiveRecordError, 'Cannot modify ourself in this way' if edge == self
@@ -722,7 +741,7 @@ module ActiveRecord
 					if edge.count == 0
 						edge.destroy!
 					else
-						edge.save!
+						edge.save! unless edge.duplicate?
 					end
 				end
 				
@@ -762,16 +781,9 @@ module ActiveRecord
 				
 				#Find the edges that need to be updated
 				def wiring
-					source = self.source
-					sink = self.sink
-					above_sources = []
-					self.links_to_source.each do |edge|
-						above_sources << edge.source
-					end
-					below_sinks = []
-					self.links_from_sink.each do |edge|
-						below_sinks << edge.sink
-					end
+					above_sources = self.above_sources
+					below_sinks   = self.below_sinks
+
 					above_bridging_legs = []
 					#everything above me tied to my sink
 					above_sources.each do |above_source|
