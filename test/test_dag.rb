@@ -68,6 +68,9 @@ end
 
 #Unit Tests for the DAG plugin
 class TestDag < Test::Unit::TestCase
+
+  # Quiet down the creation/destruction of the database
+  ActiveRecord::Migration.verbose = false
   
   #Setups up database in memory
   def setup
