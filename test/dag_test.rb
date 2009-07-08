@@ -612,6 +612,17 @@ class DagTest < Test::Unit::TestCase
     assert !e.nil? 
   end
   
+  def test_has_many_children_transitive
+    a = Node.create!
+    b = Node.create!
+    c = Node.create!
+    a.children << b
+    b.children << c
+    a_c = Default.find_link(a,c)
+    assert !a_c.nil?, "no link from a to c"
+    assert !a_c.direct?
+  end
+  
   #Tests has_many parents
   def test_has_many_parents
     a = Node.create!
