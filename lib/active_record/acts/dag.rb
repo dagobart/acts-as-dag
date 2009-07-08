@@ -717,6 +717,7 @@ module ActiveRecord
 				
 				#Changes on a wire based on the count (destroy! or save!) (should not be called outside this plugin)        
 				def push_associated_modification!(edge)
+				  puts "push_associated_modification!(#{edge.inspect})"
 					raise ActiveRecord::ActiveRecordError, 'Cannot modify ourself in this way' if edge == self
 					edge.do_not_perpetuate = true
 					if edge.count == 0
@@ -728,6 +729,7 @@ module ActiveRecord
 				
 				#Updates the wiring of edges that dependent on the current one
 				def rewire_crossing(above_leg,below_leg)
+				  puts "rewire_crossing(#{above_leg.inspect}, #{below_leg.inspect})"
 					if above_leg.count_changed?
 						was = above_leg.count_was
 						was = 0 if was.nil?
@@ -750,13 +752,20 @@ module ActiveRecord
 					count = above_leg_count * below_leg_count
 					source = above_leg.source
 					sink = below_leg.sink
+					puts "rewire_crossing: source=#{source.id}, sink=#{sink.id}"
 					bridging_leg = self.class.find_link(source,sink)
 					if bridging_leg.nil?
-						bridging_leg = self.class.new(self.class.conditions_for(source,sink))
+					  puts "rewire_crossing: class=#{self.class}"
+					  conditions = self.class.conditions_for(source,sink)
+					  puts "rewire_crossing: conditions=#{conditions.inspect}"
+            bridging_leg = self.class.new
+            bridging_leg.attributes = conditions
+            puts "rewire_crossing: (1) bridging_leg=#{bridging_leg.inspect}"
 						bridging_leg.make_indirect
 						bridging_leg.internal_count = 0
 					end
 					bridging_leg.internal_count = bridging_leg.count + count
+					puts "rewire_crossing: bridging_leg=#{bridging_leg.inspect}"
 					return bridging_leg                     
 				end
 				
@@ -764,6 +773,7 @@ module ActiveRecord
 				def wiring
 					source = self.source
 					sink = self.sink
+					puts "wiring #{source.id} to #{sink.id}"
 					above_sources = []
 					self.links_to_source.each do |edge|
 						above_sources << edge.source

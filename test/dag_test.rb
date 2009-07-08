@@ -618,9 +618,7 @@ class DagTest < Test::Unit::TestCase
     c = Node.create!
     a.children << b
     b.children << c
-    a_c = Default.find_link(a,c)
-    assert !a_c.nil?, "no link from a to c"
-    assert !a_c.direct?
+    assert Default.find_link(a,c), "no link from a to c"
   end
   
   #Tests has_many parents
