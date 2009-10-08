@@ -5,7 +5,7 @@ require 'active_record'
 require "#{File.dirname(__FILE__)}/../init"
 
 
-ActiveRecord::Base.establish_connection(:adapter => "sqlite3", :dbfile => ":memory:")
+ActiveRecord::Base.establish_connection(:adapter => "sqlite3", :database => ":memory:")
 
 #Used for basic graph link testing
 class Default < ActiveRecord::Base
@@ -424,7 +424,7 @@ class DagTest < Test::Unit::TestCase
   end
   
   #Tests that destroy link works
-  def tests_destroy_link
+  def test_destroy_link
     a = Node.create!
     b = Node.create!
     e = Default.create_edge!(a,b)
@@ -434,6 +434,16 @@ class DagTest < Test::Unit::TestCase
     c = Node.create!
     f = Default.create_edge!(b,c)
     assert_raises(ActiveRecord::ActiveRecordError) { Default.find_link(a,c).destroy }
+  end
+
+  def test_destroy_indirect_links_when_destroying_direct_link
+    a = Node.create!
+    b = Node.create!
+    c = Node.create!
+    e = Default.create_edge!(a,b)
+    f = Default.create_edge!(b,c)
+    f.destroy
+    assert Default.find_edge(b,c).nil?
   end
   
   #Tests the balancing of a graph in the transitive simple case
