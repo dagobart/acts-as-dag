@@ -573,10 +573,13 @@ module ActiveRecord
         
         #Validations on model instance creation. Ensures no duplicate links, no cycles, and correct count and direct attributes
         def validate_on_create 
+          
+          ## FIXME shouldn't this be: make sure not duplicate edges?
           #make sure no duplicates
-          if self.class.find_link(self.source,self.sink)
-            self.errors.add_to_base('Link already exists between these points')
-          end
+          #if self.class.find_link(self.source,self.sink)
+          #  self.errors.add_to_base('Link already exists between these points')
+          #end
+          
           #make sure no long cycles
           if self.class.find_link(self.sink,self.source)
             self.errors.add_to_base('Link already exists in the opposite direction')
