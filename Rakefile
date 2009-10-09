@@ -8,7 +8,7 @@ task :default => :test
 desc 'Test the acts_as_dag plugin.'
 Rake::TestTask.new(:test) do |t|
   t.libs << 'lib'
-  t.pattern = 'test/**/*_test.rb'
+  t.pattern = 'test/**/test_*.rb'
   t.verbose = true
 end
 
@@ -20,3 +20,4 @@ Rake::RDocTask.new(:rdoc) do |rdoc|
   rdoc.rdoc_files.include('README.rdoc')
   rdoc.rdoc_files.include('lib/active_record/acts/dag.rb')
 end
+
