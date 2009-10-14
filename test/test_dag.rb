@@ -5,7 +5,7 @@ require 'active_record'
 require "#{File.dirname(__FILE__)}/../init"
 
 
-ActiveRecord::Base.establish_connection(:adapter => "sqlite3", :dbfile => ":memory:")
+ActiveRecord::Base.establish_connection(:adapter => "sqlite3", :database => ":memory:")
 
 #Used for basic graph link testing
 class Default < ActiveRecord::Base
@@ -74,6 +74,7 @@ class TestDag < Test::Unit::TestCase
   
   #Setups up database in memory
   def setup
+    ActiveRecord::Migration.verbose = false
     ActiveRecord::Schema.define(:version => 1) do
     create_table :edges do |t|
       t.column :ancestor_id, :integer
@@ -426,7 +427,7 @@ class TestDag < Test::Unit::TestCase
   end
   
   #Tests that destroy link works
-  def tests_destroy_link
+  def test_destroy_link
     a = Node.create!
     b = Node.create!
     e = Default.create_edge!(a,b)
@@ -436,6 +437,16 @@ class TestDag < Test::Unit::TestCase
     c = Node.create!
     f = Default.create_edge!(b,c)
     assert_raises(ActiveRecord::ActiveRecordError) { Default.find_link(a,c).destroy }
+  end
+
+  def test_destroy_indirect_links_when_destroying_direct_link
+    a = Node.create!
+    b = Node.create!
+    c = Node.create!
+    e = Default.create_edge!(a,b)
+    f = Default.create_edge!(b,c)
+    f.destroy
+    assert Default.find_edge(b,c).nil?
   end
   
   #Tests the balancing of a graph in the transitive simple case
@@ -571,6 +582,38 @@ class TestDag < Test::Unit::TestCase
     assert !Default.build_edge(b, a).duplicate?
   end
   
+  # Test duplicate?
+  def test_duplicate?
+    a = Node.create!
+    b = Node.create!
+    
+    Default.create_edge(a, b)
+    assert Default.build_edge(a, b).duplicate?
+  end
+  
+  # Test not duplicate?
+  def test_not_duplicate?
+    a = Node.create!
+    b = Node.create!
+    
+    Default.create_edge(a, b)
+    
+    link = Default.find_link(a, b)
+    assert !link.duplicate?
+  end
+  
+  def test_inverse_links_are_not_duplicates
+    a = Node.create!
+    b = Node.create!
+    
+    Default.create_edge(a, b)
+    
+    assert Default.find_link(a, b)
+    
+    # Test that the opposite link b -> a is not a duplicate
+    assert !Default.build_edge(b, a).duplicate?
+  end
+  
   ##########################
   #TESTS FOR has_dag_links #
   ##########################
@@ -644,6 +687,15 @@ class TestDag < Test::Unit::TestCase
     a.children << b
     e = Default.find_link(a,b)
     assert !e.nil? 
+  end
+  
+  def test_has_many_children_transitive
+    a = Node.create!
+    b = Node.create!
+    c = Node.create!
+    a.children << b
+    b.children << c
+    assert Default.find_link(a,c), "no link from a to c"
   end
   
   #Tests has_many parents
@@ -916,6 +968,5 @@ class TestDag < Test::Unit::TestCase
     assert Default.connected?(three, two)
     assert_not_nil Default.find_link(three, two)
   end
-
 
 end
