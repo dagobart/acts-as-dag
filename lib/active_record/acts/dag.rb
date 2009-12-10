@@ -463,7 +463,7 @@ module ActiveRecord
         end
         
         #Finds a link between two points
-        def find_link(ancestor,descendant)
+        def find_link(ancestor, descendant)
           source = self::EndPoint.from(ancestor)
           sink = self::EndPoint.from(descendant)
           link = self.find(:first,:conditions => self.conditions_for(source,sink))
@@ -747,32 +747,30 @@ module ActiveRecord
             edge.save! unless edge.duplicate?
           end
         end
-        
-        #Updates the wiring of edges that dependent on the current one
-        def rewire_crossing(above_leg,below_leg)
-          if above_leg.count_changed?
-            was = above_leg.count_was
-            was = 0 if was.nil?
-            above_leg_count = above_leg.count - was
-            if below_leg.count_changed?
-              raise ActiveRecord::ActiveRecordError, 'ERROR: both legs cannot 0 normal count change'
-            else
-              below_leg_count = below_leg.count
-            end
-          else
-            above_leg_count = above_leg.count
-            if below_leg.count_changed?
-              was = below_leg.count_was
-              was = 0 if was.nil?
-              below_leg_count = below_leg.count - was
-            else
-              raise ActiveRecord::ActiveRecordError, 'ERROR: both legs cannot have count changes'
-            end
+
+        # Updates the wiring of edges that dependent on the current one
+        def rewire_crossing(above_leg, below_leg)
+
+          if above_leg.count_changed? && below_leg.count_changed?
+            raise ActiveRecord::ActiveRecordError, 'ERROR: both legs cannot have count changes'
           end
+
+          if above_leg.count_changed?
+            was = above_leg.count_was || 0
+            above_leg_count = above_leg.count - was
+            below_leg_count = below_leg.count
+          else
+            was = below_leg.count_was || 0
+            above_leg_count = above_leg.count
+            below_leg_count = below_leg.count - was
+          end
+
           count = above_leg_count * below_leg_count
           source = above_leg.source
           sink = below_leg.sink
+
           bridging_leg = self.class.find_link(source,sink)
+
           if bridging_leg.nil?
             conditions = self.class.conditions_for(source,sink)
             bridging_leg = self.class.new
@@ -780,33 +778,37 @@ module ActiveRecord
             bridging_leg.make_indirect
             bridging_leg.internal_count = 0
           end
+
           bridging_leg.internal_count = bridging_leg.count + count
+
           return bridging_leg                     
         end
         
-        #Find the edges that need to be updated
+        # Find the edges that need to be updated
         def wiring
-          above_sources = self.above_sources
-          below_sinks   = self.below_sinks
-          
           above_bridging_legs = []
-          #everything above me tied to my sink
+
+          # everything above me tied to my sink
           above_sources.each do |above_source|
-            above_leg = self.class.find_link(above_source,source)
-            above_bridging_leg = self.rewire_crossing(above_leg,self)
+            above_leg = self.class.find_link(above_source, source)
+            above_bridging_leg = rewire_crossing(above_leg, self)
             above_bridging_legs << above_bridging_leg unless above_bridging_leg.nil? 
           end
           
-          #everything beneath me tied to my source
+          # everything beneath me tied to my source
           below_sinks.each do |below_sink|
-            below_leg = self.class.find_link(sink,below_sink)
-            below_bridging_leg = self.rewire_crossing(self,below_leg) 
+
+            below_leg = self.class.find_link(sink, below_sink)
+            below_bridging_leg = rewire_crossing(self, below_leg) 
             self.push_associated_modification!(below_bridging_leg)
+
             above_bridging_legs.each do |above_bridging_leg|
-              long_leg = self.rewire_crossing(above_bridging_leg,below_leg)
+              long_leg = rewire_crossing(above_bridging_leg, below_leg)
               self.push_associated_modification!(long_leg)
             end
+
           end         
+
           above_bridging_legs.each do |above_bridging_leg|
             self.push_associated_modification!(above_bridging_leg)
           end
